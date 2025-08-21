@@ -1,0 +1,25 @@
+{
+	"name": "easy-cert-renderer",
+	"module": "index.ts",
+	"type": "module",
+	"private": true,
+	"scripts": {
+		"dev": "bun run --hot index.ts",
+		"compile": "bun build index.ts --compile --outfile build"
+	},
+	"devDependencies": {
+		"@types/bun": "latest"
+	},
+	"peerDependencies": {
+		"typescript": "^5"
+	},
+	"dependencies": {
+		"@types/archiver": "^6.0.3",
+		"@types/fabric": "^5.3.10",
+		"archiver": "^7.0.1",
+		"canvas": "^3.2.0",
+		"fabric": "5.3.0",
+		"hono": "^4.9.2",
+		"jspdf": "^3.0.1"
+	}
+}
