@@ -5,7 +5,7 @@
 	"private": true,
 	"scripts": {
 		"dev": "bun run --hot index.ts",
-		"compile": "bun build index.ts --compile --outfile build"
+		"compile": "bun build index.ts --outfile build.js"
 	},
 	"devDependencies": {
 		"@types/bun": "latest"
