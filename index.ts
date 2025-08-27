@@ -14,10 +14,13 @@ api.use(
 	})
 )
 	.use(logger())
-	.use('/file/*', serveStatic({ 
-		root: './public',
-		rewriteRequestPath: (path) => path.replace(/^\/file/, '')
-	}))
+	.use(
+		'/file/*',
+		serveStatic({
+			root: './public',
+			rewriteRequestPath: (path) => path.replace(/^\/file/, ''),
+		})
+	)
 	.basePath('api')
 	.get('health', (c) => {
 		return c.text('easy cert renderer module!');
