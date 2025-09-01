@@ -97,7 +97,7 @@ export async function createCertificateZip(
 	return new Promise((resolve, reject) => {
 		const output = fs.createWriteStream(zipFilePath);
 		const archive = archiver('zip', {
-			zlib: { level: 9 }
+			zlib: { level: 9 },
 		});
 
 		output.on('close', () => {

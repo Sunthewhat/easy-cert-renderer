@@ -3,10 +3,11 @@ import { cors } from 'hono/cors';
 import { logger } from 'hono/logger';
 import { serveStatic } from 'hono/bun';
 import { generateCertificatePDF, createCertificateZip } from './src/certificate-renderer.js';
-import { startCleanupScheduler } from './src/cleanup.js';
 import type { RenderPayload, RenderResult, BatchRenderResult } from './src/types.js';
 
 const api = new Hono();
+
+const PUBLIC_URL = Bun.env.PUBLIC_API_URL;
 
 api.use(
 	cors({
@@ -39,7 +40,7 @@ api.use(
 						const filePath = await generateCertificatePDF(certificate, participant);
 						results.push({
 							participantId: participant.id,
-							filePath: filePath,
+							filePath: PUBLIC_URL + `/file/${certificate.id}/` + filePath,
 							status: 'success',
 						});
 						successfulPdfPaths.push(filePath);
@@ -69,7 +70,7 @@ api.use(
 			if (successfulPdfPaths.length > 0) {
 				try {
 					const zipFilePath = await createCertificateZip(certificate, successfulPdfPaths);
-					response.zipFilePath = zipFilePath;
+					response.zipFilePath = PUBLIC_URL + `/file/${certificate.id}/` + zipFilePath;
 				} catch (error) {
 					console.error('Error creating zip file:', error);
 				}
@@ -87,9 +88,6 @@ api.use(
 			);
 		}
 	});
-
-// Start the cleanup scheduler
-startCleanupScheduler();
 
 export default {
 	fetch: api.fetch,
