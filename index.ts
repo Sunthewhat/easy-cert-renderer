@@ -7,8 +7,6 @@ import type { RenderPayload, RenderResult, BatchRenderResult } from './src/types
 
 const api = new Hono();
 
-const PUBLIC_URL = Bun.env.PUBLIC_API_URL;
-
 api.use(
 	cors({
 		origin: ['http://localhost:8000', 'https://easy-cert-api.sunthewhat.com'],
@@ -40,7 +38,7 @@ api.use(
 						const filePath = await generateCertificatePDF(certificate, participant);
 						results.push({
 							participantId: participant.id,
-							filePath: PUBLIC_URL + `/file/${certificate.id}/` + filePath,
+							filePath: filePath,
 							status: 'success',
 						});
 						successfulPdfPaths.push(filePath);
@@ -70,7 +68,7 @@ api.use(
 			if (successfulPdfPaths.length > 0) {
 				try {
 					const zipFilePath = await createCertificateZip(certificate, successfulPdfPaths);
-					response.zipFilePath = PUBLIC_URL + `/file/${certificate.id}/` + zipFilePath;
+					response.zipFilePath = zipFilePath;
 				} catch (error) {
 					console.error('Error creating zip file:', error);
 				}

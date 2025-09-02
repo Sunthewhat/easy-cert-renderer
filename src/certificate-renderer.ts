@@ -1,9 +1,8 @@
 import { fabric } from 'fabric';
 import jsPDF from 'jspdf';
-import fs from 'fs';
-import path from 'path';
 import archiver from 'archiver';
 import type { Certificate, Participant } from './types.js';
+import { uploadToMinio, downloadFromMinio } from './minio-storage.js';
 
 export function replacePlaceholders(
 	canvasJson: string,
@@ -68,58 +67,72 @@ export async function generateCertificatePDF(
 
 	pdf.addImage(dataURL, 'PNG', 0, 0, canvasWidth, canvasHeight);
 
-	const publicDir = path.join(process.cwd(), 'public', certificate.id);
 	const fileName = `certificate_${participant.id}_${Date.now()}.pdf`;
-	const filePath = path.join(publicDir, fileName);
-
-	console.log('Creating directory:', publicDir);
-	console.log('Saving file to:', filePath);
-
-	if (!fs.existsSync(publicDir)) {
-		fs.mkdirSync(publicDir, { recursive: true });
-	}
-
+	const filePathInMinio = `${certificate.id}/${fileName}`;
 	const pdfBuffer = pdf.output('arraybuffer');
-	fs.writeFileSync(filePath, Buffer.from(pdfBuffer));
 
-	// Return only the file name
-	return fileName;
+	console.log('Uploading certificate to MinIO:', filePathInMinio);
+
+	// Upload to MinIO with certificate ID as directory
+	await uploadToMinio(filePathInMinio, Buffer.from(pdfBuffer), 'application/pdf');
+
+	// Return the full path in MinIO
+	return filePathInMinio;
 }
 
 export async function createCertificateZip(
 	certificate: Certificate,
 	certificateFiles: string[]
 ): Promise<string> {
-	const publicDir = path.join(process.cwd(), 'public', certificate.id);
 	const zipFileName = `certificates_${certificate.id}_${Date.now()}.zip`;
-	const zipFilePath = path.join(publicDir, zipFileName);
+	const zipPathInMinio = `${certificate.id}/${zipFileName}`;
 
-	return new Promise((resolve, reject) => {
-		const output = fs.createWriteStream(zipFilePath);
-		const archive = archiver('zip', {
-			zlib: { level: 9 },
-		});
+	return new Promise(async (resolve, reject) => {
+		try {
+			const archive = archiver('zip', {
+				zlib: { level: 9 },
+			});
 
-		output.on('close', () => {
-			console.log(`Zip file created: ${zipFilePath} (${archive.pointer()} total bytes)`);
-			// Return only the zip file name
-			resolve(zipFileName);
-		});
+			const chunks: Buffer[] = [];
 
-		archive.on('error', (err) => {
-			reject(err);
-		});
+			archive.on('data', (chunk) => {
+				chunks.push(chunk);
+			});
 
-		archive.pipe(output);
+			archive.on('end', async () => {
+				try {
+					const zipBuffer = Buffer.concat(chunks);
+					console.log(`Zip file created in memory (${zipBuffer.length} total bytes)`);
 
-		// Add each certificate file to the zip
-		certificateFiles.forEach((fileName) => {
-			const absolutePath = path.join(publicDir, fileName);
-			if (fs.existsSync(absolutePath)) {
-				archive.file(absolutePath, { name: fileName });
+					// Upload zip to MinIO with certificate ID as directory
+					await uploadToMinio(zipPathInMinio, zipBuffer, 'application/zip');
+
+					// Return the full path in MinIO
+					resolve(zipPathInMinio);
+				} catch (error) {
+					reject(error);
+				}
+			});
+
+			archive.on('error', (err) => {
+				reject(err);
+			});
+
+			// Download each certificate file from MinIO and add to zip
+			for (const fileName of certificateFiles) {
+				try {
+					console.log(`Downloading ${fileName} from MinIO for zip`);
+					const fileBuffer = await downloadFromMinio(fileName);
+					archive.append(fileBuffer, { name: fileName });
+				} catch (error) {
+					console.error(`Error downloading ${fileName} from MinIO:`, error);
+					// Continue with other files even if one fails
+				}
 			}
-		});
 
-		archive.finalize();
+			archive.finalize();
+		} catch (error) {
+			reject(error);
+		}
 	});
 }
