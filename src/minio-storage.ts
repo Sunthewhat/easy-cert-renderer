@@ -3,7 +3,7 @@ import * as Minio from 'minio';
 const minioConfig = {
 	endPoint: Bun.env.MINIO_ENDPOINT ?? '',
 	accessKey: Bun.env.MINIO_ACCESS ?? '',
-	secretKey: Bun.env.MINIO_SCRET ?? '',
+	secretKey: Bun.env.MINIO_SECRET ?? '',
 	useSSL: true,
 };
 
@@ -17,9 +17,20 @@ export async function uploadToMinio(
 	contentType: string = 'application/octet-stream'
 ): Promise<string> {
 	try {
+		console.log('MinIO Config:', {
+			endPoint: minioConfig.endPoint,
+			accessKey: minioConfig.accessKey,
+			secretKey: minioConfig.secretKey ? '***' : 'missing',
+			bucketName: bucketName,
+			useSSL: minioConfig.useSSL
+		});
+
 		// Ensure bucket exists
 		const bucketExists = await minioClient.bucketExists(bucketName);
+		console.log(`Bucket ${bucketName} exists:`, bucketExists);
+		
 		if (!bucketExists) {
+			console.log(`Creating bucket: ${bucketName}`);
 			await minioClient.makeBucket(bucketName, 'us-east-1');
 		}
 
@@ -32,6 +43,11 @@ export async function uploadToMinio(
 		return fileName;
 	} catch (error) {
 		console.error('Error uploading to MinIO:', error);
+		console.error('MinIO client config being used:', {
+			endPoint: minioConfig.endPoint,
+			accessKey: minioConfig.accessKey,
+			bucketName: bucketName
+		});
 		throw error;
 	}
 }
