@@ -2,8 +2,12 @@ import { Hono, type Context } from 'hono';
 import { cors } from 'hono/cors';
 import { logger } from 'hono/logger';
 import { serveStatic } from 'hono/bun';
-import { generateCertificatePDF, createCertificateZip } from './src/certificate-renderer.js';
-import type { RenderPayload, RenderResult, BatchRenderResult } from './src/types.js';
+import {
+	generateCertificatePDF,
+	createCertificateZip,
+	generateCertificateThumbnail,
+} from './src/certificate-renderer.js';
+import type { RenderPayload, RenderResult, BatchRenderResult, Certificate } from './src/types.js';
 
 const api = new Hono();
 
@@ -80,6 +84,40 @@ api.use(
 			return c.json(
 				{
 					error: 'Failed to process request',
+					details: error instanceof Error ? error.message : 'Unknown error',
+				},
+				500
+			);
+		}
+	})
+	.post('thumbnail', async (c) => {
+		try {
+			const body = await c.req.json<{
+				certificate: Certificate;
+				width?: number;
+				height?: number;
+			}>();
+			const { certificate, width, height } = body;
+
+			if (!certificate) {
+				return c.json({ error: 'Certificate data is required' }, 400);
+			}
+
+			const thumbnailPath = await generateCertificateThumbnail(
+				certificate,
+				width || 300,
+				height || 225
+			);
+
+			return c.json({
+				message: 'Thumbnail generated successfully',
+				thumbnailPath: thumbnailPath,
+			});
+		} catch (error) {
+			console.error('Error generating thumbnail:', error);
+			return c.json(
+				{
+					error: 'Failed to generate thumbnail',
 					details: error instanceof Error ? error.message : 'Unknown error',
 				},
 				500

@@ -32,6 +32,52 @@ export function replacePlaceholders(
 	return JSON.stringify(canvasData);
 }
 
+export async function generateCertificateThumbnail(
+	certificate: Certificate,
+	thumbnailWidth: number = 300,
+	thumbnailHeight: number = 225
+): Promise<string> {
+	const canvasWidth = 800;
+	const canvasHeight = 600;
+
+	// Use the original design without replacing placeholders
+	const canvasData = JSON.parse(certificate.design);
+
+	const staticCanvas = new fabric.StaticCanvas(null, {
+		width: canvasWidth,
+		height: canvasHeight,
+	});
+
+	await new Promise<void>((resolve) => {
+		staticCanvas.loadFromJSON(canvasData, () => {
+			staticCanvas.renderAll();
+			resolve();
+		});
+	});
+
+	// Generate thumbnail with specified dimensions
+	const dataURL = staticCanvas.toDataURL({
+		format: 'png',
+		quality: 0.8,
+		multiplier: Math.min(thumbnailWidth / canvasWidth, thumbnailHeight / canvasHeight),
+	});
+
+	// Convert data URL to buffer
+	const base64Data = dataURL.replace(/^data:image\/png;base64,/, '');
+	const imageBuffer = Buffer.from(base64Data, 'base64');
+
+	const thumbnailFileName = `thumbnail_${certificate.id}_${Date.now()}.png`;
+	const thumbnailPathInMinio = `${certificate.id}/${thumbnailFileName}`;
+
+	console.log('Uploading certificate thumbnail to MinIO:', thumbnailPathInMinio);
+
+	// Upload thumbnail to MinIO
+	await uploadToMinio(thumbnailPathInMinio, imageBuffer, 'image/png');
+
+	// Return the full path in MinIO
+	return thumbnailPathInMinio;
+}
+
 export async function generateCertificatePDF(
 	certificate: Certificate,
 	participant: Participant
