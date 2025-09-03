@@ -32,6 +32,56 @@ export function replacePlaceholders(
 	return JSON.stringify(canvasData);
 }
 
+async function preprocessWebPImages(canvasData: any): Promise<any> {
+	if (!canvasData.objects) return canvasData;
+
+	// Pre-process WebP images before loading into Fabric.js
+	for (const obj of canvasData.objects) {
+		if (obj.type === 'Image' && obj.src) {
+			if (obj.src.includes('.webp') || obj.src.includes('format=webp')) {
+				console.log('Found WebP image, creating fallback:', obj.src);
+
+				// Try to create fallback URLs
+				let fallbackSrc = obj.src;
+				if (obj.src.includes('format=webp')) {
+					fallbackSrc = obj.src.replace('format=webp', 'format=png');
+				} else if (obj.src.includes('.webp')) {
+					// For direct .webp files, try common alternatives
+					fallbackSrc = obj.src.replace('.webp', '.jpg');
+				}
+
+				console.log('Using fallback URL:', fallbackSrc);
+				obj.src = fallbackSrc;
+			}
+		}
+	}
+
+	return canvasData;
+}
+
+async function loadCanvasWithImageFallback(
+	canvas: fabric.StaticCanvas,
+	canvasData: any
+): Promise<void> {
+	return new Promise(async (resolve) => {
+		try {
+			// Preprocess WebP images first
+			const processedData = await preprocessWebPImages(canvasData);
+
+			// Load the canvas with processed data
+			canvas.loadFromJSON(processedData, () => {
+				canvas.renderAll();
+				resolve();
+			});
+		} catch (error) {
+			console.error('Error loading canvas:', error);
+			// Even if there are errors, try to render what we can
+			canvas.renderAll();
+			resolve();
+		}
+	});
+}
+
 export async function generateCertificateThumbnail(
 	certificate: Certificate,
 	thumbnailWidth: number = 300,
@@ -48,12 +98,7 @@ export async function generateCertificateThumbnail(
 		height: canvasHeight,
 	});
 
-	await new Promise<void>((resolve) => {
-		staticCanvas.loadFromJSON(canvasData, () => {
-			staticCanvas.renderAll();
-			resolve();
-		});
-	});
+	await loadCanvasWithImageFallback(staticCanvas, canvasData);
 
 	// Generate thumbnail with specified dimensions
 	const dataURL = staticCanvas.toDataURL({
@@ -93,12 +138,7 @@ export async function generateCertificatePDF(
 		height: canvasHeight,
 	});
 
-	await new Promise<void>((resolve) => {
-		staticCanvas.loadFromJSON(canvasData, () => {
-			staticCanvas.renderAll();
-			resolve();
-		});
-	});
+	await loadCanvasWithImageFallback(staticCanvas, canvasData);
 
 	const dataURL = staticCanvas.toDataURL({
 		format: 'png',
