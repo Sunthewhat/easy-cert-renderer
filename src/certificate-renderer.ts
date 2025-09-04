@@ -1,6 +1,9 @@
 import { fabric } from 'fabric';
 import jsPDF from 'jspdf';
 import archiver from 'archiver';
+import QRCode from 'qrcode';
+import fs from 'fs';
+import path from 'path';
 import type { Certificate, Participant } from './types.js';
 import {
 	uploadToMinio,
@@ -35,6 +38,49 @@ export function replacePlaceholders(
 	}
 
 	return JSON.stringify(canvasData);
+}
+
+async function generateQRCode(participantId: string): Promise<string> {
+	try {
+		// Generate QR code as data URL with 100x100 size to match QR anchor
+		const dataURL = await QRCode.toDataURL(participantId, {
+			width: 100,
+			margin: 1,
+			color: {
+				dark: '#000000',
+				light: '#FFFFFF',
+			},
+		});
+
+		console.log('QR code generated as data URL (100x100) for participant:', participantId);
+		return dataURL;
+	} catch (error) {
+		console.error('Error generating QR code:', error);
+		throw error;
+	}
+}
+
+async function processQRAnchor(canvasData: any, participantId: string): Promise<any> {
+	if (!canvasData.objects) return canvasData;
+
+	// Find and replace QR anchor objects
+	for (const obj of canvasData.objects) {
+		if (obj.isQRanchor === true) {
+			console.log('Found QR anchor, generating QR code for participant:', participantId);
+
+			// Generate QR code as data URL
+			const qrDataURL = await generateQRCode(participantId);
+
+			// Replace the object with an image object pointing to the QR code
+			obj.type = 'Image';
+			obj.src = qrDataURL;
+			delete obj.isQRanchor;
+
+			console.log('QR anchor replaced with QR code data URL');
+		}
+	}
+
+	return canvasData;
 }
 
 async function preprocessWebPImages(canvasData: any): Promise<any> {
@@ -146,11 +192,14 @@ export async function generateCertificatePDF(
 	certificate: Certificate,
 	participant: Participant
 ): Promise<string> {
-	const canvasWidth = 800;
-	const canvasHeight = 600;
+	const canvasWidth = 850;
+	const canvasHeight = 601;
 
 	const replacedJson = replacePlaceholders(certificate.design, participant.data);
-	const canvasData = JSON.parse(replacedJson);
+	let canvasData = JSON.parse(replacedJson);
+
+	// Process QR anchor and generate QR code if needed
+	canvasData = await processQRAnchor(canvasData, participant.id);
 
 	const staticCanvas = new fabric.StaticCanvas(null, {
 		width: canvasWidth,

@@ -16,11 +16,13 @@
 	"dependencies": {
 		"@types/archiver": "^6.0.3",
 		"@types/fabric": "^5.3.10",
+		"@types/qrcode": "^1.5.5",
 		"archiver": "^7.0.1",
 		"canvas": "^3.2.0",
 		"fabric": "5.3.0",
 		"hono": "^4.9.2",
 		"jspdf": "^3.0.1",
-		"minio": "^8.0.5"
+		"minio": "^8.0.5",
+		"qrcode": "^1.5.4"
 	}
 }
