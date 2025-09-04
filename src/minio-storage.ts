@@ -81,3 +81,33 @@ export async function downloadFromMinio(fileName: string): Promise<Buffer> {
 		throw error;
 	}
 }
+
+export async function deleteFromMinio(fileName: string): Promise<void> {
+	try {
+		await minioClient.removeObject(bucketName, fileName);
+		console.log(`File deleted from MinIO: ${fileName}`);
+	} catch (error) {
+		console.error('Error deleting from MinIO:', error);
+		throw error;
+	}
+}
+
+export async function listMinioObjects(prefix: string): Promise<string[]> {
+	try {
+		const objects: string[] = [];
+		const stream = minioClient.listObjects(bucketName, prefix, true);
+		
+		return new Promise((resolve, reject) => {
+			stream.on('data', (obj) => {
+				if (obj.name) {
+					objects.push(obj.name);
+				}
+			});
+			stream.on('error', reject);
+			stream.on('end', () => resolve(objects));
+		});
+	} catch (error) {
+		console.error('Error listing MinIO objects:', error);
+		throw error;
+	}
+}

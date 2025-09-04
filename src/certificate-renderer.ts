@@ -2,7 +2,12 @@ import { fabric } from 'fabric';
 import jsPDF from 'jspdf';
 import archiver from 'archiver';
 import type { Certificate, Participant } from './types.js';
-import { uploadToMinio, downloadFromMinio } from './minio-storage.js';
+import {
+	uploadToMinio,
+	downloadFromMinio,
+	deleteFromMinio,
+	listMinioObjects,
+} from './minio-storage.js';
 
 export function replacePlaceholders(
 	canvasJson: string,
@@ -89,6 +94,20 @@ export async function generateCertificateThumbnail(
 ): Promise<string> {
 	const canvasWidth = 800;
 	const canvasHeight = 600;
+
+	// Remove existing thumbnails first
+	try {
+		console.log('Checking for existing thumbnails to remove...');
+		const existingObjects = await listMinioObjects(`${certificate.id}/thumbnail_`);
+
+		for (const objectName of existingObjects) {
+			console.log('Removing existing thumbnail:', objectName);
+			await deleteFromMinio(objectName);
+		}
+	} catch (error) {
+		console.log('No existing thumbnails found or error removing them:', error);
+		// Continue even if deletion fails
+	}
 
 	// Use the original design without replacing placeholders
 	const canvasData = JSON.parse(certificate.design);
