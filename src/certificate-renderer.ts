@@ -43,7 +43,7 @@ export function replacePlaceholders(
 async function generateQRCode(participantId: string): Promise<string> {
 	try {
 		// Generate QR code as data URL with 100x100 size to match QR anchor
-		const verifyUrl = `${Bun.env.VERIFY_SERVICE_URL}/verify/${participantId}`;
+		const verifyUrl = `${Bun.env.VERIFY_SERVICE_URL}/validate/result/${participantId}`;
 		const dataURL = await QRCode.toDataURL(verifyUrl, {
 			width: 100,
 			margin: 1,
